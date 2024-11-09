@@ -13,7 +13,7 @@ import pickle
 
 class SyncMap:
 	
-	def __init__(self, input_size, dimensions, adaptation_rate):
+	def __init__(self, input_size, dimensions, adaptation_rate, eps=3, min_samples=2):
 		
 		self.organized= False
 		self.space_size= 10
@@ -23,8 +23,13 @@ class SyncMap:
 		self.syncmap= np.random.rand(input_size,dimensions)
 		self.adaptation_rate= adaptation_rate
 		#self.syncmap= np.random.rand(dimensions, input_size)
+
+		# DBSCAN参数
+		self.eps = eps
+		self.min_samples = min_samples
 	
 	def inputGeneral(self, x):
+		# 这一步就是公式$$w_{i,t+1}=w_{i,t}+\alpha*\frac{(\phi(i,t)*cp_{t}+(1-\phi(i,t))*cn_t}{\lVert\omega_{i,t}-cp_{t}\rVert}\tag{8}$$
 		plus= x > 0.1
 		minus = ~ plus
 
@@ -167,7 +172,7 @@ class SyncMap:
 	
 		self.organized= True
 		#self.labels= DBSCAN(eps=3, min_samples=2).fit_predict(self.syncmap)
-		self.labels= DBSCAN(eps=3, min_samples=2).fit_predict(self.syncmap)
+		self.labels= DBSCAN(eps=self.eps, min_samples=self.min_samples).fit_predict(self.syncmap) # 接受外部参数
 
 		return self.labels
 
@@ -201,7 +206,7 @@ class SyncMap:
 
 
 		plt.savefig(filename,quality=1, dpi=300)
-		plt.show()
+		# plt.show()
 		plt.close()
 	
 
@@ -227,9 +232,9 @@ class SyncMap:
 			#ax.plot3D(self.syncmap[:,0],self.syncmap[:,1], self.syncmap[:,2])
 		
 		if save == True:
-			plt.savefig(filename)
+			plt.savefig(filename, dpi=300)
 		
-		plt.show()
+		# plt.show()
 		plt.close()
 
 	def save(self, filename):

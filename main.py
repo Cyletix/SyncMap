@@ -17,6 +17,7 @@ from SyncMap import *
 #from MRILNeuron import *
 from VAE import *
 
+from sklearn.metrics import normalized_mutual_info_score
 
 
 save_dir= "output_files/"
@@ -25,11 +26,11 @@ arg_size = len(sys.argv)
 if arg_size > 1:
 	problem_type= sys.argv[1]
 	save_filename = save_dir + sys.argv[2]
-	save_truth_filename = save_dir + sys.argv[2] + "_truth"
+	# save_truth_filename = save_dir + sys.argv[2] + "_truth"
 else:
-	save_filename= None
-	problem_type = None
-
+	save_filename= "syncmap"
+	problem_type = 6
+save_truth_filename=save_filename + "_truth"
 
 time_delay = 10
 
@@ -90,6 +91,9 @@ labels= neuron_group.organize()
 print("Learned Labels: ",labels)
 print("Correct Labels: ",env.trueLabel())
 
+nmi_score = normalized_mutual_info_score(env.trueLabel(), labels)
+print("NMI Score:", nmi_score)
+
 if save_filename is not None:
 
 	with open(save_filename,"a+") as f:
@@ -105,13 +109,13 @@ if save_filename is not None:
 
 #exit()
 
-#color=None
-#save= True
-#neuron_group.plot(color,save)
+color=None
+save= True
+neuron_group.plot(color,save)
 
 
-#input_sequence, input_class = env.getSequence(1000)
-#neuron_group.plotSequence(input_sequence, input_class)
+input_sequence, input_class = env.getSequence(1000)
+neuron_group.plotSequence(input_sequence, input_class)
 
 
 
