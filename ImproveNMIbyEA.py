@@ -20,7 +20,7 @@ print("GPU Available:", tf.test.is_gpu_available())
 
 # Define parameter bounds
 param_bounds = {
-    'adaptation_rate': (0.0001, 0.01),
+    'adaptation_rate': (0.0001, 0.001),
     'map_dimensions': (2, 5),
     'eps': (0.5, 10),
     'min_samples': (2, 10),

@@ -4,8 +4,10 @@ from sklearn.linear_model import LinearRegression
 import numpy as np
 import statsmodels.api as sm
 
+save_name="results_overlap1"
+
 # Load data
-data = pd.read_csv('output_files/results_table.csv')
+data = pd.read_csv(f'output_files/{save_name}_table.csv')
 
 # Define independent variables (parameters) and dependent variable (NMI_score)
 X = data[['adaptation_rate', 'map_dimensions', 'eps', 'min_samples', 'm']]
@@ -40,6 +42,6 @@ print("\nParameters sorted by their influence on NMI_score:\n")
 print(effect_params)
 
 # Save the detailed result to a CSV file
-effect_params.to_csv('output_files/parameter_influence_analysis.csv', index=False)
+effect_params.to_csv(f'output_files/{save_name}_parameter_influence_analysis.csv', index=False)
 
-print("\nAnalysis completed. Results saved to 'output_files/parameter_influence_analysis.csv'.")
+print(f"\nAnalysis completed. Results saved to 'output_files/{save_name}_parameter_influence_analysis.csv'.")

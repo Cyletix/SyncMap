@@ -75,6 +75,7 @@ print("GPU Available:", tf.config.list_physical_devices('GPU'))
 
 
 
+
 def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, eps=3, min_samples=2, problem_type=6):
 
     # Determine `save_dir` as the directory where `main.py` is located
@@ -145,6 +146,7 @@ def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, eps=3, min_sam
 
     # Create an instance of SyncMap with the provided parameters
     neuron_group = SyncMapNoDBSCAN(
+        env,
         input_size=number_of_nodes,
         dimensions=map_dimensions,
         adaptation_rate=adaptation_rate,
@@ -192,16 +194,17 @@ def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, eps=3, min_sam
     learned_labels = np.array([label if label != -1 else noise_label for label in learned_labels])
 
     # Calculate NMI score
-    nmi_score = normalized_mutual_info_score(trueLabel, learned_labels)
+    # nmi_score = normalized_mutual_info_score(trueLabel, learned_labels)
+    nmi_score=neuron_group.nmi_score
 
     # Optionally, print current parameters and NMI score
     # print("Current Parameters:")
-    print(f"Adaptation Rate: {adaptation_rate}")
+    print(f"Adaptation Rate: {neuron_group.adaptation_rate}")
     print(f"Map Dimensions: {map_dimensions}")
     print(f"markov length: 2")
     print(f"DBSCAN eps: {eps}")
     print(f"DBSCAN min_samples: {min_samples}")
-    print(f"NMI Score: {nmi_score}")
+    print(f"NMI Score: {nmi_score}\n")
 
 
     # 保存图片
@@ -237,7 +240,7 @@ if __name__ == '__main__':
         nmi_score, _, _, _ = run_main_program(
             adaptation_rate=adaptation_rate,
             map_dimensions=map_dimensions,
-            problem_type=6,
+            problem_type=7,
         )
         nmi_scores.append(nmi_score)
         print(f"Run {i+1}:")

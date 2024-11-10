@@ -4,7 +4,6 @@
 
 from keras.utils import to_categorical
 import numpy as np
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from sklearn.cluster import DBSCAN
@@ -12,24 +11,24 @@ from scipy.spatial import distance
 import pickle
 from scipy.spatial.distance import pdist, squareform
 import networkx as nx
-
+from sklearn.metrics import normalized_mutual_info_score
+import math
 plt.style.use('dark_background')  # 应用黑暗模式
-mpl.rcParams['text.color'] = 'white'
 
 
 class SyncMapNoDBSCAN:
     
     def __init__(
             self, 
+            env,
             input_size, 
             dimensions, 
             adaptation_rate,
             eps=3,
             min_samples=2, 
-            # weight_matrix=None, 
-            # theta=0.5,
+            nmi_score=0
             ):
-        
+        self.env=env
         self.organized= False
         self.space_size= 10
         self.dimensions= dimensions
@@ -38,6 +37,7 @@ class SyncMapNoDBSCAN:
         self.syncmap= np.random.rand(input_size,dimensions)
         self.adaptation_rate= adaptation_rate
         #self.syncmap= np.random.rand(dimensions, input_size)
+        self.nmi_score=None
 
         # DBSCAN参数
         self.eps = eps
@@ -107,9 +107,38 @@ class SyncMapNoDBSCAN:
     #         maximum=self.syncmap.max()
     #         self.syncmap= self.space_size*self.syncmap/maximum
 
-    def inputGeneral(self, x):
+    # def inputGeneral(self, x):
+    #     plus = x > 0.1
+    #     minus = ~plus
+
+    #     sequence_size = x.shape[0]
+    #     for i in range(sequence_size):
+    #         vplus = plus[i, :]
+    #         vminus = minus[i, :]
+    #         plus_mass = vplus.sum()
+    #         minus_mass = vminus.sum()
+
+    #         if plus_mass <= 1 or minus_mass <= 1:
+    #             continue
+
+    #         center_plus = np.dot(vplus, self.syncmap) / plus_mass
+    #         center_minus = np.dot(vminus, self.syncmap) / minus_mass
+
+    #         # Update positions with co-occurrence weights
+    #         update_plus = vplus[:, None] * (center_plus - self.syncmap)
+    #         update_minus = vminus[:, None] * (center_minus - self.syncmap)
+
+    #         self.syncmap += self.adaptation_rate * (update_plus - update_minus)
+    #         maximum = self.syncmap.max()
+    #         self.syncmap = self.space_size * self.syncmap / maximum
+
+
+    # 修改后的 inputGeneral 方法
+    def inputGeneral(self, x,  update_interval=10):
         plus = x > 0.1
         minus = ~plus
+
+        true_labels=self.env.trueLabel()
 
         sequence_size = x.shape[0]
         for i in range(sequence_size):
@@ -124,7 +153,7 @@ class SyncMapNoDBSCAN:
             center_plus = np.dot(vplus, self.syncmap) / plus_mass
             center_minus = np.dot(vminus, self.syncmap) / minus_mass
 
-            # Update positions with co-occurrence weights
+            # 更新位置
             update_plus = vplus[:, None] * (center_plus - self.syncmap)
             update_minus = vminus[:, None] * (center_minus - self.syncmap)
 
@@ -132,7 +161,28 @@ class SyncMapNoDBSCAN:
             maximum = self.syncmap.max()
             self.syncmap = self.space_size * self.syncmap / maximum
 
-        
+            # 每隔 update_interval 次迭代更新一次 adaptation_rate
+            if (i + 1) % update_interval == 0:
+                # 获取预测标签
+                learned_labels = self.organize()
+                # 处理噪声标签（-1）
+                noise_label = max(learned_labels) + 1
+                learned_labels = np.array([label if label != -1 else noise_label for label in learned_labels])
+
+                # 计算 NMI
+                self.nmi_score = normalized_mutual_info_score(true_labels, learned_labels)
+
+                # 更新 adaptation_rate
+                self.update_adaptation_rate()
+
+    def update_adaptation_rate(self):
+        # 确保 NMI 在 (0, 1] 范围内
+        adjusted_NMI = max(self.nmi_score, 1e-6)
+        # 根据 NMI 线性调整 adaptation_rate
+        self.adaptation_rate = 0.1*math.exp(-4.6052*adjusted_NMI)
+        return self.adaptation_rate    
+
+
 
     def input(self, x):
         
