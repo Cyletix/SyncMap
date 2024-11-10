@@ -17,6 +17,7 @@ from GraphWalkTest import *
 import sys
 
 # Neurons
+from SyncMap import *
 from SyncMapNoDBSCAN import *
 # from MRILNeuron import *
 from VAE import *
@@ -31,52 +32,50 @@ import matplotlib.pyplot as plt
 # Check TensorFlow GPU
 import tensorflow as tf
 print(tf.__version__)
-print("GPU Available:", tf.test.is_gpu_available())
+print("GPU Available:", tf.config.list_physical_devices('GPU'))
 
 
 # 移除DBSCAN, 使用n-gram, 计算共生权重
-def calculate_cooccurrence_weights(input_sequence, n, threshold):
-    from collections import Counter, defaultdict
+# def calculate_cooccurrence_weights(input_sequence, n, threshold):
+#     from collections import Counter, defaultdict
 
-    # 将输入序列转换为节点索引序列
-    sequence_indices = np.argmax(input_sequence, axis=1)
+#     # 将输入序列转换为节点索引序列
+#     sequence_indices = np.argmax(input_sequence, axis=1)
 
-    ngrams = [tuple(sequence_indices[i:i + n]) for i in range(len(sequence_indices) - n + 1)]
-    freq_count = Counter(ngrams)
+#     ngrams = [tuple(sequence_indices[i:i + n]) for i in range(len(sequence_indices) - n + 1)]
+#     freq_count = Counter(ngrams)
 
-    # 选择频率大于阈值的 n-gram
-    frequent_ngrams = {ngram: count for ngram, count in freq_count.items() if count > threshold}
+#     # 选择频率大于阈值的 n-gram
+#     frequent_ngrams = {ngram: count for ngram, count in freq_count.items() if count > threshold}
 
-    # 初始化共现计数矩阵
-    cooccurrence_counts = defaultdict(int)
+#     # 初始化共现计数矩阵
+#     cooccurrence_counts = defaultdict(int)
 
-    for ngram, count in frequent_ngrams.items():
-        nodes_in_ngram = set(ngram)
-        for i in nodes_in_ngram:
-            for j in nodes_in_ngram:
-                if i != j:
-                    cooccurrence_counts[(i, j)] += count
+#     for ngram, count in frequent_ngrams.items():
+#         nodes_in_ngram = set(ngram)
+#         for i in nodes_in_ngram:
+#             for j in nodes_in_ngram:
+#                 if i != j:
+#                     cooccurrence_counts[(i, j)] += count
 
-    # 转换为矩阵形式
-    num_nodes = input_sequence.shape[1]
-    cooccurrence_matrix = np.zeros((num_nodes, num_nodes))
-    for (i, j), count in cooccurrence_counts.items():
-        cooccurrence_matrix[i, j] = count
+#     # 转换为矩阵形式
+#     num_nodes = input_sequence.shape[1]
+#     cooccurrence_matrix = np.zeros((num_nodes, num_nodes))
+#     for (i, j), count in cooccurrence_counts.items():
+#         cooccurrence_matrix[i, j] = count
 
-    # 归一化权重矩阵
-    max_count = cooccurrence_matrix.max()
-    if max_count > 0:
-        weight_matrix = cooccurrence_matrix / max_count
-    else:
-        weight_matrix = cooccurrence_matrix
+#     # 归一化权重矩阵
+#     max_count = cooccurrence_matrix.max()
+#     if max_count > 0:
+#         weight_matrix = cooccurrence_matrix / max_count
+#     else:
+#         weight_matrix = cooccurrence_matrix
 
-    return weight_matrix
-
-
+#     return weight_matrix
 
 
 
-def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, n=2, frequency_threshold=5, theta=0.5, problem_type=6):
+def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, eps=3, min_samples=2, problem_type=6):
 
     # Determine `save_dir` as the directory where `main.py` is located
     save_dir = os.path.join(os.path.dirname(__file__), "output_files/")
@@ -93,9 +92,9 @@ def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, n=2, frequency
     save_truth_filename = save_filename + "_truth"
 
 
-    time_delay = 10 #tstemp
-
-    print("Problem type:", problem_type)
+    problem_type=6
+    # print("Problem type:", problem_type)
+    time_delay = 10 #tstemp 论文测试条件: 10
 
     # problem_type = int(problem_type)
 
@@ -111,17 +110,15 @@ def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, n=2, frequency
     elif problem_type == 5:
         env = LongChunkTest(time_delay)
     elif problem_type == 6:
-        env = OverlapChunkTest1(time_delay)
-        # env = OverlapChunkTest1UpMRKV(time_delay,m=m)
+        # env = OverlapChunkTest1(time_delay)
+        env = OverlapChunkTest1UpMRKV(time_delay,m=m)
     elif problem_type == 7:
         env = OverlapChunkTest2(time_delay)
     else:
         print("Invalid problem type. Exiting.")
-        return None
-
     output_size = env.getOutputSize()
 
-    print("Output Size:", output_size)
+    # print("Output Size:", output_size)
 
     sequence_length = 100000
 
@@ -129,7 +126,7 @@ def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, n=2, frequency
     input_sequence, input_class = env.getSequence(sequence_length)
 
     # 计算关联权重矩阵
-    weight_matrix = calculate_cooccurrence_weights(input_sequence, n, frequency_threshold)
+    # weight_matrix = calculate_cooccurrence_weights(input_sequence, n, frequency_threshold)
 
     ####### SyncMap #####
     number_of_nodes = output_size
@@ -137,12 +134,21 @@ def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, n=2, frequency
     adaptation_rate = adaptation_rate * output_size
     # print("Adaptation rate:", adaptation_rate)
 
+    # SyncMap
+    neuron_group = SyncMap(
+        input_size=number_of_nodes,
+        dimensions=map_dimensions,
+        adaptation_rate=adaptation_rate,
+        eps=3,
+        min_samples=2
+    )
+
     # Create an instance of SyncMap with the provided parameters
     neuron_group = SyncMapNoDBSCAN(
         input_size=number_of_nodes,
         dimensions=map_dimensions,
         adaptation_rate=adaptation_rate,
-        weight_matrix=weight_matrix  # 传递权重矩阵
+        # weight_matrix=weight_matrix  # 传递权重矩阵
     )
     ####### SyncMap #####
 
@@ -155,7 +161,7 @@ def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, n=2, frequency
     ###### VAE #####
 
     # 调整 `organize` 方法中的 `theta`
-    neuron_group.theta = theta  # 新增传递的距离阈值参数
+    # neuron_group.theta = theta  # 新增传递的距离阈值参数
 
 
 
@@ -177,7 +183,7 @@ def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, n=2, frequency
 
 
     # Get ground truth labels
-    correct_labels = env.trueLabel()
+    trueLabel = env.trueLabel()
     # Get labels predicted by SyncMap
     learned_labels = labels
 
@@ -186,39 +192,39 @@ def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, n=2, frequency
     learned_labels = np.array([label if label != -1 else noise_label for label in learned_labels])
 
     # Calculate NMI score
-    nmi_score = normalized_mutual_info_score(correct_labels, learned_labels)
-    print("NMI Score:", nmi_score)
+    nmi_score = normalized_mutual_info_score(trueLabel, learned_labels)
 
     # Optionally, print current parameters and NMI score
-    print("Current Parameters:")
+    # print("Current Parameters:")
     print(f"Adaptation Rate: {adaptation_rate}")
     print(f"Map Dimensions: {map_dimensions}")
-    # print(f"DBSCAN eps: {eps}")
-    # print(f"DBSCAN min_samples: {min_samples}")
+    print(f"markov length: 2")
+    print(f"DBSCAN eps: {eps}")
+    print(f"DBSCAN min_samples: {min_samples}")
     print(f"NMI Score: {nmi_score}")
 
 
     # 保存图片
     timestamp = time.strftime("%Y%m%d-%H%M%S") # 获取当前时间戳
-    color=correct_labels # correct_labels
+    color=trueLabel
     save= False 
 
     # neuron_group.plot(color,save,filename= "plot_map.png")
-    neuron_group.plot(color, save=save, filename=f"{save_dir}plot_map_{timestamp}.png")
-    input_sequence, input_class = env.getSequence(100000)
+    # neuron_group.plot(color, save=save, filename=f"{save_dir}plot_map_{timestamp}.png")
+    # input_sequence, input_class = env.getSequence(100000)
     # neuron_group.plotSequence(input_sequence, input_class,filename="plotSequence.png")
-    neuron_group.plotSequence(input_sequence, input_class, save=save, filename=f"{save_dir}plotSequence_{timestamp}.png")
+    # neuron_group.plotSequence(input_sequence, input_class, save=save, filename=f"{save_dir}plotSequence_{timestamp}.png")
 
-    return nmi_score, learned_labels, correct_labels, output_size
+    return nmi_score, learned_labels, trueLabel, output_size
 
 if __name__ == '__main__':
     # set default parameters here or use command-line arguments
     # default parameters:
-    adaptation_rate = 0.01
-    map_dimensions = 2
+    adaptation_rate = 0.1 # 论文测试条件: 0.1
+    map_dimensions = 3 # 论文测试条件: 3
     # eps = 5
     # min_samples = 2
-    m=10 #markov order
+    m=2 #markov order 论文测试条件: 2
 
     # Run the main program with the specified parameters  运行一次
     # run_main_program(adaptation_rate, map_dimensions, eps, min_samples,problem_type=6)
@@ -226,16 +232,15 @@ if __name__ == '__main__':
 
     # 按照论文中的实验方法, 运行10次取平均和方差
     nmi_scores = []
-    num_runs = 10  # 设置运行次数
-    for i in range(num_runs):  # 重复实验
+    num_runs = 10  # 论文测试条件: 10
+    for i in range(num_runs): 
         nmi_score, _, _, _ = run_main_program(
             adaptation_rate=adaptation_rate,
             map_dimensions=map_dimensions,
             problem_type=6,
-            m=m
         )
         nmi_scores.append(nmi_score)
-        print(f"Run {i+1}: NMI Score = {nmi_score}")
+        print(f"Run {i+1}:")
 
     mean_nmi = np.mean(nmi_scores)
     std_nmi = np.std(nmi_scores)

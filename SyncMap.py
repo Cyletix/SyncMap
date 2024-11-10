@@ -228,7 +228,7 @@ class SyncMap:
 			fig = plt.figure()
 			ax = plt.axes(projection='3d')
 
-			ax.scatter3D(self.syncmap[:,0],self.syncmap[:,1], self.syncmap[:,2], c=color);
+			ax.scatter3D(self.syncmap[:,0],self.syncmap[:,1], self.syncmap[:,2], c=color)
 			#ax.plot3D(self.syncmap[:,0],self.syncmap[:,1], self.syncmap[:,2])
 		
 		if save == True:

@@ -19,6 +19,7 @@ class OverlapChunkTest1UpMRKV:
         self.m = m  # 设置马尔可夫链阶数
         self.state_history = []  # 用于存储过去 m 个状态
         self.noise_intensity = 0.0  # 原始代码中的噪声强度
+        self.decay_rate = 0.05 # 定义衰减速率 default=0.1
 
     def getOutputSize(self):
         return self.output_size
@@ -73,7 +74,7 @@ class OverlapChunkTest1UpMRKV:
         # 基于状态历史队列生成输入值
         input_value = np.zeros(self.output_size)
         for i, state in enumerate(reversed(self.state_history)):
-            decay = np.exp(-0.1 * (self.time_counter + i * self.time_delay))
+            decay = np.exp(-self.decay_rate * (self.time_counter + i * self.time_delay)) # 衰减速率 default=0.1
             input_value += to_categorical(state, self.output_size) * decay
 
         # 添加噪声

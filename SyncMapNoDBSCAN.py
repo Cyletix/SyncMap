@@ -4,9 +4,10 @@
 
 from keras.utils import to_categorical
 import numpy as np
-import matplotlib.pyplot as plt
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from sklearn.cluster import DBSCAN
 from scipy.spatial import distance
 import pickle
 from scipy.spatial.distance import pdist, squareform
@@ -22,9 +23,12 @@ class SyncMapNoDBSCAN:
             self, 
             input_size, 
             dimensions, 
-            adaptation_rate, 
-            weight_matrix=None, 
-            theta=0.5):
+            adaptation_rate,
+            eps=3,
+            min_samples=2, 
+            # weight_matrix=None, 
+            # theta=0.5,
+            ):
         
         self.organized= False
         self.space_size= 10
@@ -35,9 +39,12 @@ class SyncMapNoDBSCAN:
         self.adaptation_rate= adaptation_rate
         #self.syncmap= np.random.rand(dimensions, input_size)
 
+        # DBSCAN参数
+        self.eps = eps
+        self.min_samples = min_samples
         # PARSER
-        self.weight_matrix = weight_matrix   # 添加权重矩阵
-        self.theta = theta  # Distance threshold for adjacency
+        # self.weight_matrix = weight_matrix   # 添加权重矩阵
+        # self.theta = theta  # Distance threshold for adjacency
 
         
     # def inputGeneral(self, x):
@@ -213,6 +220,15 @@ class SyncMapNoDBSCAN:
             maximum=self.syncmap.max()
             self.syncmap= self.space_size*self.syncmap/maximum
 
+
+    def organize(self):
+    
+        self.organized= True
+        #self.labels= DBSCAN(eps=3, min_samples=2).fit_predict(self.syncmap)
+        self.labels= DBSCAN(eps=self.eps, min_samples=self.min_samples).fit_predict(self.syncmap) # 接受外部参数
+
+        return self.labels
+
             
     # def organize(self):
     #     self.organized= True
@@ -243,30 +259,30 @@ class SyncMapNoDBSCAN:
     #     return self.labels
 
 
-    def organize(self):
-        self.organized = True
+    # def organize(self):
+    #     self.organized = True
 
-        # Compute distance matrix
-        dist_matrix = squareform(pdist(self.syncmap, metric='euclidean'))
+    #     # Compute distance matrix
+    #     dist_matrix = squareform(pdist(self.syncmap, metric='euclidean'))
 
-        # Build adjacency matrix using distance threshold
-        adjacency_matrix = (dist_matrix < self.theta).astype(int)
+    #     # Build adjacency matrix using distance threshold
+    #     adjacency_matrix = (dist_matrix < self.theta).astype(int)
 
-        # Incorporate co-occurrence weights
-        if self.weight_matrix is not None:
-            adjacency_matrix *= (self.weight_matrix > 0)
+    #     # Incorporate co-occurrence weights
+    #     if self.weight_matrix is not None:
+    #         adjacency_matrix *= (self.weight_matrix > 0)
 
-        # Build graph and find connected components
-        G = nx.from_numpy_array(adjacency_matrix)
-        connected_components = list(nx.connected_components(G))
+    #     # Build graph and find connected components
+    #     G = nx.from_numpy_array(adjacency_matrix)
+    #     connected_components = list(nx.connected_components(G))
 
-        # Assign labels based on connected components
-        self.labels = -np.ones(self.input_size, dtype=int)
-        for cluster_id, component in enumerate(connected_components):
-            for node_idx in component:
-                self.labels[node_idx] = cluster_id
+    #     # Assign labels based on connected components
+    #     self.labels = -np.ones(self.input_size, dtype=int)
+    #     for cluster_id, component in enumerate(connected_components):
+    #         for node_idx in component:
+    #             self.labels[node_idx] = cluster_id
 
-        return self.labels
+    #     return self.labels
 
 
 
@@ -288,8 +304,8 @@ class SyncMapNoDBSCAN:
 
     def plotSequence(self, input_sequence, input_class, save = False,filename="output_files/plotSequence.png"):
 
-        input_sequence= input_sequence[-1000:]
-        input_class= input_class[-1000:]
+        input_sequence= input_sequence[-5000:]
+        input_class= input_class[-5000:]
 
         a= np.asarray(input_class)
         t = [i for i,value in enumerate(a)]
@@ -311,7 +327,7 @@ class SyncMapNoDBSCAN:
         if color is None:
             color= self.labels
         
-        print(self.syncmap)
+        print("self.syncmap:\n",self.syncmap)
         #print(self.syncmap)
         #print(self.syncmap[:,0])
         #print(self.syncmap[:,1])

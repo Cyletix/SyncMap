@@ -70,7 +70,7 @@ adaptation_rate= 0.001*output_size
 #adaptation_rate= 0.01*output_size
 #adaptation_rate= 0.1/output_size
 print("Adaptation rate:", adaptation_rate)
-map_dimensions= 2
+map_dimensions= 3
 neuron_group= SyncMap(number_of_nodes, map_dimensions, adaptation_rate)
 ####### SyncMap #####
 

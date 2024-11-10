@@ -1,6 +1,6 @@
 import json
 
-jsonpath='output_files/results.json'
+jsonpath='output_files/results_overlap1.json'
 
 # 读取数据
 with open(jsonpath, 'r') as f:
@@ -39,7 +39,7 @@ for gen, details in generations.items():
 df = pd.DataFrame(rows)
 
 # 保存为 CSV 文件
-csv_path = 'output_files/results_table.csv'
+csv_path = 'output_files/results_overlap1_table.csv'
 df.to_csv(csv_path, index=False)
 
 csv_path

@@ -11,31 +11,31 @@ print(tf.__version__)
 print("GPU Available:", tf.test.is_gpu_available())
 
 
-def set_random_seed(seed=42):
-    np.random.seed(seed)
-    random.seed(seed)
+# def set_random_seed(seed=42):
+#     np.random.seed(seed)
+#     random.seed(seed)
 
-set_random_seed()
+# set_random_seed()
 
 
 # Define parameter bounds
-# param_bounds = {
-#     'adaptation_rate': (0.0001, 0.01),
-#     'map_dimensions': (2, 3),
-#     'eps': (0.1, 5.0),
-#     'min_samples': (1, 10),
-#     'm': (2, 10)  
-# }
+param_bounds = {
+    'adaptation_rate': (0.0001, 0.01),
+    'map_dimensions': (2, 5),
+    'eps': (0.5, 10),
+    'min_samples': (2, 10),
+    'm': (2, 10)  
+}
 
 # # NoDBSCAN
-param_bounds = {
-    'adaptation_rate': (0.001, 0.1),
-    'map_dimensions': (2, 5),
-    'm': (2, 10),
-    'n': (2, 5),
-    'frequency_threshold': (1, 10),
-    'theta': (0.1, 2.0)
-}
+# param_bounds = {
+#     'adaptation_rate': (0.001, 0.1),
+#     'map_dimensions': (3, 3),
+#     'm': (2, 2),
+#     'n': (2, 5),
+#     'frequency_threshold': (1, 10),
+#     'theta': (0.1, 2.0)
+# }
 
 
 # Initialize population
@@ -49,12 +49,12 @@ def initialize_population(size, previous_best=None):
         chromosome = {
             'adaptation_rate': random.uniform(*param_bounds['adaptation_rate']),
             'map_dimensions': random.randint(*param_bounds['map_dimensions']),
-            # 'eps': random.uniform(*param_bounds['eps']),
-            # 'min_samples': random.randint(*param_bounds['min_samples']),
+            'eps': random.uniform(*param_bounds['eps']),
+            'min_samples': random.randint(*param_bounds['min_samples']),
             'm': random.randint(*param_bounds['m']),  # 添加 m 参数
-            'n': random.uniform(*param_bounds['n']),
-            'frequency_threshold': random.uniform(*param_bounds['frequency_threshold']),
-            'theta': random.uniform(*param_bounds['theta'])
+            # 'n': random.uniform(*param_bounds['n']),
+            # 'frequency_threshold': random.uniform(*param_bounds['frequency_threshold']),
+            # 'theta': random.uniform(*param_bounds['theta'])
         }
         population.append(chromosome)
     return population
@@ -67,48 +67,50 @@ def fitness_function(chromosome):
     m = chromosome['m']
     
     # DBSCAN    
-    # eps = chromosome['eps']
-    # min_samples = chromosome['min_samples']
+    eps = chromosome['eps']
+    min_samples = chromosome['min_samples']
 
     # PARSER
-    n = chromosome['n']
-    frequency_threshold = chromosome['frequency_threshold']
-    theta = chromosome['theta']
+    # n = chromosome['n']
+    # frequency_threshold = chromosome['frequency_threshold']
+    # theta = chromosome['theta']
     
     # 多任务测试
     nmi_scores = []
     label_entropies = []
     num_runs = 10  # 设置运行次数
-    for problem_type in [7]:
+    for problem_type in [6]:
         problem_nmi_scores = []
         problem_label_entropies = []
-        for _ in range(num_runs):
+        for i in range(num_runs):
+            print(f"Run {i+1}:")
             nmi_score, learned_labels, _, _ = run_main_program(
                 adaptation_rate=adaptation_rate,
                 map_dimensions=map_dimensions,
-                # eps=eps,
-                # min_samples=min_samples,
+                eps=eps,
+                min_samples=min_samples,
                 m=m,
                 problem_type=problem_type
             )
             problem_nmi_scores.append(nmi_score)
             
             # 计算标签的熵作为分布惩罚
-            _, counts = np.unique(learned_labels, return_counts=True)
-            problem_label_entropies.append(entropy(counts))
+            # _, counts = np.unique(learned_labels, return_counts=True)
+            # problem_label_entropies.append(entropy(counts))
+            
         
         # 计算当前 problem_type 的平均 NMI 和熵
         avg_nmi = np.mean(problem_nmi_scores)
-        avg_entropy = np.mean(problem_label_entropies)
         nmi_scores.append(avg_nmi)
-        label_entropies.append(avg_entropy)
+        # avg_entropy = np.mean(problem_label_entropies)
+        # label_entropies.append(avg_entropy)
 
     # 计算所有 problem_type 的平均 NMI 和熵
     avg_nmi_score = np.mean(nmi_scores)
-    avg_entropy = np.mean(label_entropies)
+    # avg_entropy = np.mean(label_entropies)
     
     # 惩罚过低的熵，减去分布惩罚项, 如果不考虑就直接返回avg_nmi_score
-    fitness = avg_nmi_score - 0.1 * (1 - avg_entropy)
+    # fitness = avg_nmi_score - 0.1 * (1 - avg_entropy)
     return avg_nmi_score
 
 
@@ -151,8 +153,8 @@ def evolutionary_algorithm(generations, population_size, continue_training=False
     last_population = None
     
     # 检查是否有已存在的结果文件
-    if continue_training and os.path.exists('output_files/results_NoDBSCAN_overlap2.json'):
-        with open('output_files/results_NoDBSCAN_overlap2.json', 'r') as f:
+    if continue_training and os.path.exists('output_files/results_overlap1.json'):
+        with open('output_files/results_overlap1.json', 'r') as f:
             data = json.load(f)
             generations_data = data.get("generations", {})
             last_generation = str(max(map(int, generations_data.keys())))
@@ -203,7 +205,7 @@ def evolutionary_algorithm(generations, population_size, continue_training=False
         population = reproduce(selected)
         
         # 将所有代的结果写入文件
-        with open('output_files/results_NoDBSCAN_overlap2.json', 'w') as f:
+        with open('output_files/results_overlap1.json', 'w') as f:
             json.dump({"generations": generations_data}, f, indent=4)
     
     # 返回最后的最佳个体
@@ -226,7 +228,7 @@ if __name__ == "__main__":
     print("Best Parameters Found:")
     print(f"Adaptation Rate: {best_params['adaptation_rate']}")
     print(f"Map Dimensions: {best_params['map_dimensions']}")
-    # print(f"DBSCAN eps: {best_params['eps']}")
-    # print(f"DBSCAN min_samples: {best_params['min_samples']}")
+    print(f"DBSCAN eps: {best_params['eps']}")
+    print(f"DBSCAN min_samples: {best_params['min_samples']}")
     print(f"Markov Chain Length m: {best_params['m']}")
     print(f"NMI Score: {best_params['NMI_score']}")
