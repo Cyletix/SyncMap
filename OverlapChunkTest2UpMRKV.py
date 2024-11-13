@@ -3,29 +3,29 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 
-class OverlapChunkTest1UpMRKV:
+
+class OverlapChunkTest2UpMRKV:
     
-    def __init__(self, time_delay, m=2):
+    def __init__(self,time_delay,m=2):
         self.chunk = 0
-        self.output_size = 8
+        self.output_size = 10
         self.counter = -1
         self.time_delay = time_delay
         self.time_counter = time_delay
         self.output_class = 0
         self.previous_output_class = None
-        self.previous_previous_output_class = None
         self.sequenceA_length = 4
         self.sequenceB_length = 4
         self.m = m  # 设置马尔可夫链阶数
         self.state_history = []  # 用于存储过去 m 个状态
         self.noise_intensity = 0.0  # 原始代码中的噪声强度
-        self.decay_rate = 0.1 # 定义衰减速率 default=0.1
+        self.decay_rate = 0.1  # 定义衰减速率
 
     def getOutputSize(self):
         return self.output_size
     
     def trueLabel(self):
-        truelabel= np.array((0,0,0,1,1,2,2,2))
+        truelabel = np.array((0,0,0,0,0,1,1,1,1,1))
         return truelabel
 
     def updateTimeDelay(self):
@@ -37,7 +37,7 @@ class OverlapChunkTest1UpMRKV:
             return False
 
     # 创建系统的输入模式
-    def getInput(self, reset=False):
+    def getInput(self,reset=False):
         
         if reset:
             self.chunk = 0
@@ -69,38 +69,38 @@ class OverlapChunkTest1UpMRKV:
             if self.chunk == 0:
                 self.output_class = np.random.randint(5)  # 可能的输出 0~4
             else:
-                self.output_class = 3 + np.random.randint(5)  # 可能的输出 3~7
+                self.output_class = np.random.randint(10)  # 可能的输出 0~9
 
         # 基于状态历史队列生成输入值
         input_value = np.zeros(self.output_size)
-        for i, state in enumerate(reversed(self.state_history)):
-            decay = np.exp(-self.decay_rate * (self.time_counter + i * self.time_delay)) # 衰减速率 default=0.1
-            input_value += to_categorical(state, self.output_size) * decay
+        for i,state in enumerate(reversed(self.state_history)):
+            decay = np.exp(-self.decay_rate * (self.time_counter + i * self.time_delay))
+            input_value += to_categorical(state,self.output_size) * decay
 
         # 添加噪声
         input_value += np.random.randn(self.output_size) * self.noise_intensity
         return input_value
 
-    def getSequence(self, iterations):
+    def getSequence(self,iterations):
         input_class = np.empty(iterations)
-        input_sequence = np.empty((iterations, self.output_size))
+        input_sequence = np.empty((iterations,self.output_size))
 
         for i in range(iterations):
             input_value = self.getInput()
             input_class[i] = self.chunk
             input_sequence[i] = input_value
 
-        return input_sequence, input_class
+        return input_sequence,input_class
 
-    def plot(self, input_class, input_sequence=None, save=False):
+    def plot(self,input_class,input_sequence=None,save=False):
         a = np.asarray(input_class)
-        t = [i for i, value in enumerate(a)]
+        t = [i for i,value in enumerate(a)]
 
-        plt.plot(t, a)
+        plt.plot(t,a)
         
         if input_sequence is not None:
             sequence = [np.argmax(x) for x in input_sequence]
-            plt.plot(t, sequence)
+            plt.plot(t,sequence)
 
         if save:
             plt.savefig("plot.png")
@@ -108,18 +108,18 @@ class OverlapChunkTest1UpMRKV:
         plt.show()
         plt.close()
     
-    def plotSuperposed(self, input_class, input_sequence=None, save=False):
+    def plotSuperposed(self,input_class,input_sequence=None,save=False):
         input_sequence = np.asarray(input_sequence)
         
-        t = [i for i, value in enumerate(input_sequence)]
+        t = [i for i,value in enumerate(input_sequence)]
         print(input_sequence.shape)
 
         for i in range(input_sequence.shape[1]):
-            a = input_sequence[:, i]
-            plt.plot(t, a)
+            a = input_sequence[:,i]
+            plt.plot(t,a)
         
         a = np.asarray(input_class)
-        plt.plot(t, a)
+        plt.plot(t,a)
 
         if save:
             plt.savefig("plot.png")

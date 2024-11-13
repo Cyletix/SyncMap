@@ -3,20 +3,23 @@
 ################################################################################ 
 
 from keras.utils import to_categorical
+import pickle
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from sklearn.cluster import DBSCAN
-from scipy.spatial import distance
-import pickle
-from scipy.spatial.distance import pdist, squareform
 import networkx as nx
+from scipy.spatial import distance
+from scipy.spatial.distance import pdist, squareform
+from sklearn.cluster import DBSCAN
 from sklearn.metrics import normalized_mutual_info_score
-import math
+from sklearn.metrics import mean_squared_error
+import time
+
 plt.style.use('dark_background')  # 应用黑暗模式
 
 
-class SyncMapNoDBSCAN:
+class SyncMapDynaAdp:
     
     def __init__(
             self, 
@@ -26,7 +29,8 @@ class SyncMapNoDBSCAN:
             adaptation_rate,
             eps=3,
             min_samples=2, 
-            nmi_score=0
+            nmi_score=0, # test
+            weight_matrix=None
             ):
         self.env=env
         self.organized= False
@@ -37,110 +41,33 @@ class SyncMapNoDBSCAN:
         self.syncmap= np.random.rand(input_size,dimensions)
         self.adaptation_rate= adaptation_rate
         #self.syncmap= np.random.rand(dimensions, input_size)
-        self.nmi_score=None
-
+        # self.nmi_score=None
+        self.weight_matrix = weight_matrix  # 添加权重矩阵
+        self.previous_error = float('inf')
+        self.num_clusters = None  # 初始化 num_clusters 属性
         # DBSCAN参数
         self.eps = eps
         self.min_samples = min_samples
-        # PARSER
-        # self.weight_matrix = weight_matrix   # 添加权重矩阵
-        # self.theta = theta  # Distance threshold for adjacency
 
-        
-    # def inputGeneral(self, x):
-    #     plus= x > 0.1
-    #     minus = ~ plus
-
-    #     sequence_size = x.shape[0]
-    #     for i in range(sequence_size):
-    #         vplus= plus[i,:]
-    #         vminus= minus[i,:]
-    #         plus_indices = np.where(vplus)[0]
-    #         minus_indices = np.where(vminus)[0]
-    #         plus_mass = len(plus_indices)
-    #         minus_mass = len(minus_indices)
-
-    #         if plus_mass <= 1:
-    #             continue
-    #         if minus_mass <= 1:
-    #             continue
-
-    #         # 计算正样本中心
-    #         center_plus= np.mean(self.syncmap[plus_indices], axis=0)
-    #         # 计算负样本中心
-    #         center_minus= np.mean(self.syncmap[minus_indices], axis=0)
-
-    #         # 更新正样本节点的位置
-    #         for idx in plus_indices:
-    #             # 计算与其他正样本节点的权重加权更新
-    #             weighted_sum = np.zeros(self.dimensions)
-    #             total_weight = 0.0
-    #             for jdx in plus_indices:
-    #                 if idx != jdx:
-    #                     weight = self.weight_matrix[idx, jdx] if self.weight_matrix is not None else 1.0
-    #                     diff = self.syncmap[jdx] - self.syncmap[idx]
-    #                     dist = np.linalg.norm(diff)
-    #                     if dist > 0:
-    #                         weighted_sum += weight * diff / dist
-    #                         total_weight += weight
-    #             if total_weight > 0:
-    #                 delta = self.adaptation_rate * (weighted_sum / total_weight)
-    #                 self.syncmap[idx] += delta
-
-    #         # 更新负样本节点的位置
-    #         for idx in minus_indices:
-    #             # 计算与正样本节点的权重加权更新
-    #             weighted_sum = np.zeros(self.dimensions)
-    #             total_weight = 0.0
-    #             for jdx in plus_indices:
-    #                 weight = self.weight_matrix[idx, jdx] if self.weight_matrix is not None else 1.0
-    #                 diff = self.syncmap[jdx] - self.syncmap[idx]
-    #                 dist = np.linalg.norm(diff)
-    #                 if dist > 0:
-    #                     weighted_sum -= weight * diff / dist
-    #                     total_weight += weight
-    #             if total_weight > 0:
-    #                 delta = self.adaptation_rate * (weighted_sum / total_weight)
-    #                 self.syncmap[idx] += delta
-
-    #         # 保持节点位置在定义的空间范围内
-    #         maximum=self.syncmap.max()
-    #         self.syncmap= self.space_size*self.syncmap/maximum
-
-    # def inputGeneral(self, x):
-    #     plus = x > 0.1
-    #     minus = ~plus
-
-    #     sequence_size = x.shape[0]
-    #     for i in range(sequence_size):
-    #         vplus = plus[i, :]
-    #         vminus = minus[i, :]
-    #         plus_mass = vplus.sum()
-    #         minus_mass = vminus.sum()
-
-    #         if plus_mass <= 1 or minus_mass <= 1:
-    #             continue
-
-    #         center_plus = np.dot(vplus, self.syncmap) / plus_mass
-    #         center_minus = np.dot(vminus, self.syncmap) / minus_mass
-
-    #         # Update positions with co-occurrence weights
-    #         update_plus = vplus[:, None] * (center_plus - self.syncmap)
-    #         update_minus = vminus[:, None] * (center_minus - self.syncmap)
-
-    #         self.syncmap += self.adaptation_rate * (update_plus - update_minus)
-    #         maximum = self.syncmap.max()
-    #         self.syncmap = self.space_size * self.syncmap / maximum
+        # self.test_x=[]
+        # self.test_y=[]
+        # self.sequence_size = 0
 
 
-    # 修改后的 inputGeneral 方法
-    def inputGeneral(self, x,  update_interval=10):
-        plus = x > 0.1
+    def inputGeneral(self, x,  update_interval=10, prediction_interval=100, prediction_steps=100):
+        # 初始化标签序列
+        if not hasattr(self, 'labels_sequence'):
+            self.labels_sequence = []
+
+        plus = x > 0.1 # [array([ True,  True, False, False,...
         minus = ~plus
 
-        true_labels=self.env.trueLabel()
+        # 尝试根据规模自适应
+        # prediction_interval=int(len(x)/1000)
+        # prediction_steps=int(prediction_interval)
 
         sequence_size = x.shape[0]
+        # self.sequence_size=sequence_size
         for i in range(sequence_size):
             vplus = plus[i, :]
             vminus = minus[i, :]
@@ -157,30 +84,157 @@ class SyncMapNoDBSCAN:
             update_plus = vplus[:, None] * (center_plus - self.syncmap)
             update_minus = vminus[:, None] * (center_minus - self.syncmap)
 
+            current_syncmap = self.syncmap
             self.syncmap += self.adaptation_rate * (update_plus - update_minus)
             maximum = self.syncmap.max()
             self.syncmap = self.space_size * self.syncmap / maximum
 
-            # 每隔 update_interval 次迭代更新一次 adaptation_rate
+            # 每隔一定步数更新适应率adaptation_rate
             if (i + 1) % update_interval == 0:
-                # 获取预测标签
-                learned_labels = self.organize()
-                # 处理噪声标签（-1）
-                noise_label = max(learned_labels) + 1
-                learned_labels = np.array([label if label != -1 else noise_label for label in learned_labels])
+                # 更新聚类
+                self.organize()
+                # 将当前输入的标签加入序列
+                current_label = self.activate(x[i])
+                self.labels_sequence.append(current_label)
 
-                # 计算 NMI
-                self.nmi_score = normalized_mutual_info_score(true_labels, learned_labels)
+                # 每隔prediction_interval步进行预测和误差计算
+                if (i + 1) % prediction_interval == 0:
 
-                # 更新 adaptation_rate
-                self.update_adaptation_rate()
+                    # 获取当前状态
+                    current_state = current_label
+                    # 预测未来的聚类序列
+                    predicted_states = self.predict_future_sequence(current_state, prediction_steps)
+                    # 将预测的聚类标签转换为输入向量
+                    predicted_inputs = self.labels_to_inputs(predicted_states)
+                    # 确保获取的实际输入序列长度足够
+                    actual_inputs = x[i+1:i+1+prediction_steps]
+                    min_length = min(len(predicted_inputs), len(actual_inputs))
 
-    def update_adaptation_rate(self):
-        # 确保 NMI 在 (0, 1] 范围内
-        adjusted_NMI = max(self.nmi_score, 1e-6)
-        # 根据 NMI 线性调整 adaptation_rate
-        self.adaptation_rate = 0.1*math.exp(-4.6052*adjusted_NMI)
-        return self.adaptation_rate    
+                    if min_length > 0:
+                        # 截断到相同长度
+                        predicted_inputs = predicted_inputs[:min_length]
+                        actual_inputs = actual_inputs[:min_length]
+
+                        # 计算预测误差
+                        prediction_error = self.calculate_prediction_error(predicted_inputs, actual_inputs)
+                    # 更新适应率
+                    self.update_adaptation_rate_based_on_prediction_error(prediction_error)
+
+
+    def labels_to_inputs(self, labels):
+        # 重新计算聚类中心以确保与标签对应
+        self.calculate_cluster_centers()
+        
+        # 安全的标签转换
+        max_label = max(self.labels) + 1
+        inputs = []
+        for label in labels:
+            # 如果标签超出范围，使用最近的有效中心
+            if label >= len(self.cluster_centers) or label < 0:
+                label = min(len(self.cluster_centers) - 1, max(0, label))
+            inputs.append(self.cluster_centers[label])
+        return np.array(inputs)
+
+    def calculate_cluster_centers(self):
+        # 确保包含所有可能的标签
+        unique_labels = np.unique(self.labels)
+        self.cluster_centers = []
+        
+        for label in range(min(unique_labels), max(unique_labels) + 1):
+            cluster_indices = np.where(self.labels == label)[0]
+            if len(cluster_indices) > 0:  # 只为非空簇计算中心
+                cluster_inputs = self.syncmap[cluster_indices]
+                center = np.mean(cluster_inputs, axis=0)
+                self.cluster_centers.append(center)
+            else:  # 对于空簇，使用默认中心点
+                self.cluster_centers.append(np.zeros(self.dimensions))
+
+    def predict_future_sequence(self, current_state, n_steps):
+        if not hasattr(self, 'label_map'):
+            self.build_transition_matrix()
+        
+        if current_state not in self.label_map:
+            # 处理未见过的标签
+            return [current_state] * n_steps  # 或其他合适的处理方式
+            
+        state_idx = self.label_map[current_state]
+        predicted_states = []
+        
+        for _ in range(n_steps):
+            next_idx = np.random.choice(self.num_clusters, p=self.transition_matrix[state_idx])
+            # 将索引转回原始标签
+            next_state = [k for k, v in self.label_map.items() if v == next_idx][0]
+            predicted_states.append(next_state)
+            state_idx = next_idx
+            
+        return predicted_states
+
+    def build_transition_matrix(self):
+        labels_sequence = self.labels_sequence
+        unique_labels = np.unique(labels_sequence)  
+        self.label_map = {label: idx for idx, label in enumerate(unique_labels)}
+        self.num_clusters = len(unique_labels)
+        
+        # 初始化转移计数矩阵
+        transition_counts = np.zeros((self.num_clusters, self.num_clusters))
+        
+        # 计算转移计数
+        for i in range(len(labels_sequence) - 1):
+            curr_label = labels_sequence[i]
+            next_label = labels_sequence[i + 1]
+            
+            if curr_label in self.label_map and next_label in self.label_map:
+                curr_idx = self.label_map[curr_label] 
+                next_idx = self.label_map[next_label]
+                transition_counts[curr_idx, next_idx] += 1
+
+        # 处理全零行
+        row_sums = transition_counts.sum(axis=1, keepdims=True)
+        # 如果某行和为0,则设置为均匀分布
+        zero_rows = (row_sums == 0).flatten()
+        transition_counts[zero_rows] = 1.0 / self.num_clusters
+        
+        # 重新计算行和并归一化
+        row_sums = transition_counts.sum(axis=1, keepdims=True)
+        self.transition_matrix = transition_counts / row_sums
+
+        return self.transition_matrix
+
+    def calculate_prediction_error(self, predicted_inputs, actual_inputs):
+        # 将 actual_inputs 映射到投影空间
+        actual_indices = [np.argmax(actual_input) for actual_input in actual_inputs]
+        actual_positions = self.syncmap[actual_indices]
+        # 确保形状一致
+        predicted_inputs = np.array(predicted_inputs)
+        actual_positions = np.array(actual_positions)
+        # 计算预测误差
+        error = mean_squared_error(actual_positions.flatten(), predicted_inputs.flatten())
+        return error
+
+    # 3. 预测未来的序列来评估模型的性能
+    def update_adaptation_rate_based_on_prediction_error(self, prediction_error):
+        # 定义适应率调整范围和参数
+        max_rate = 1e-2
+        min_rate = 1e-4
+
+        # 打印当前和之前的预测误差
+        # print(f"Current prediction error: {prediction_error}")
+        # print(f"Previous prediction error: {self.previous_error:.2f}")
+        # print(f"Adaptation Rate:{self.adaptation_rate:.5f}")
+        # time.sleep(0.1)
+        
+        # 根据预测误差调整适应率
+        if prediction_error > self.previous_error:
+            # 如果误差增加，增大学习率
+            self.adaptation_rate = min(max_rate, self.adaptation_rate*1)
+        elif prediction_error < self.previous_error:
+            # 如果误差减少，减小学习率
+            self.adaptation_rate = max(min_rate, self.adaptation_rate*1)
+
+        # 更新previous_error, 仅在学习效果好的时候记录更新
+        self.previous_error = prediction_error
+
+        return self.adaptation_rate
 
 
 
@@ -336,8 +390,6 @@ class SyncMapNoDBSCAN:
 
 
 
-
-
     def activate(self, x):
         '''
         Return the label of the index with maximum input value
@@ -360,7 +412,7 @@ class SyncMapNoDBSCAN:
         a= np.asarray(input_class)
         t = [i for i,value in enumerate(a)]
         c= [self.activate(x) for x in input_sequence] 
-        
+
 
         plt.plot(t, a, '-g')
         plt.plot(t, c, '-.w')

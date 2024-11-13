@@ -205,7 +205,7 @@ class SyncMap:
 		#plt.ylim([-0.01,1.2])
 
 
-		plt.savefig(filename,quality=1, dpi=300)
+		plt.savefig(filename)
 		# plt.show()
 		plt.close()
 	
@@ -215,7 +215,7 @@ class SyncMap:
 		if color is None:
 			color= self.labels
 		
-		print(self.syncmap)
+		# print(self.syncmap) # 控制打印节点 看点的位置的时候记得打开
 		#print(self.syncmap)
 		#print(self.syncmap[:,0])
 		#print(self.syncmap[:,1])
@@ -232,7 +232,7 @@ class SyncMap:
 			#ax.plot3D(self.syncmap[:,0],self.syncmap[:,1], self.syncmap[:,2])
 		
 		if save == True:
-			plt.savefig(filename, dpi=300)
+			plt.savefig(filename)
 		
 		# plt.show()
 		plt.close()

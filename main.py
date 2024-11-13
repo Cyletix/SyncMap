@@ -91,32 +91,38 @@ labels= neuron_group.organize()
 print("Learned Labels: ",labels)
 print("Correct Labels: ",env.trueLabel())
 
-nmi_score = normalized_mutual_info_score(env.trueLabel(), labels)
+
+# 使用自定义新方法计算NMI
+learned_labels_cal=[]
+for i,label in enumerate(labels):
+	if label==-1:
+		label=max(labels) + 1+i
+	learned_labels_cal.append(label)
+learned_labels_cal=np.array(learned_labels_cal)
+
+nmi_score = normalized_mutual_info_score(env.trueLabel(), learned_labels_cal)
 print("NMI Score:", nmi_score)
 
-if save_filename is not None:
+# if save_filename is not None:
 
-	with open(save_filename,"a+") as f:
-		tmp = np.array2string(labels, precision=2, separator=',')
-		f.write(tmp+"\n")
-		f.closed
+# 	with open(save_filename,"a+") as f:
+# 		tmp = np.array2string(labels, precision=2, separator=',')
+# 		f.write(tmp+"\n")
+# 		f.closed
 	
-	if labels is not None:
-		with open(save_truth_filename,"a+") as f:
-			tmp = np.array2string(env.trueLabel(), precision=2, separator=',')
-			f.write(tmp+"\n")
-			f.closed
+# 	if labels is not None:
+# 		with open(save_truth_filename,"a+") as f:
+# 			tmp = np.array2string(env.trueLabel(), precision=2, separator=',')
+# 			f.write(tmp+"\n")
+# 			f.closed
 
 #exit()
 
-color=None
-save= True
-neuron_group.plot(color,save)
+# color=None
+# save= None
+# neuron_group.plot(color,save)
 
 
-input_sequence, input_class = env.getSequence(1000)
-neuron_group.plotSequence(input_sequence, input_class)
-
-
-
+# input_sequence, input_class = env.getSequence(1000)
+# neuron_group.plotSequence(input_sequence, input_class)
 
