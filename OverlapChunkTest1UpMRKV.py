@@ -60,10 +60,10 @@ class OverlapChunkTest1UpMRKV:
                 else:
                     self.counter += 1
 
-            # 存储过去 m 个状态的历史
+            # Store the history of the last m states
             if len(self.state_history) >= self.m:
-                self.state_history.pop(0)  # 移除最早的状态
-            self.state_history.append(self.output_class)  # 添加当前状态
+                self.state_history.pop(0)  # Remove the oldest state
+            self.state_history.append(self.output_class)  # Add the current state
 
             # 更新当前状态（取决于当前 chunk 是否为 0）
             if self.chunk == 0:
@@ -71,11 +71,12 @@ class OverlapChunkTest1UpMRKV:
             else:
                 self.output_class = 3 + np.random.randint(5)  # 可能的输出 3~7
 
-        # 基于状态历史队列生成输入值
+        # Generate input_value based on the state history
         input_value = np.zeros(self.output_size)
-        for i, state in enumerate(reversed(self.state_history)):
-            decay = np.exp(-self.decay_rate * (self.time_counter + i * self.time_delay)) # 衰减速率 default=0.1
-            input_value += to_categorical(state, self.output_size) * decay
+        for i, state in enumerate(reversed(self.state_history[:-1])):# Exclude the current state
+            if state != self.output_class:
+                decay = np.exp(-self.decay_rate * (self.time_counter + (i + 1) * self.time_delay)) # 衰减速率 default=0.1
+                input_value += to_categorical(state, self.output_size) * decay
 
         # 添加噪声
         input_value += np.random.randn(self.output_size) * self.noise_intensity
