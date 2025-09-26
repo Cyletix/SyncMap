@@ -14,6 +14,8 @@ from sklearn.cluster import SpectralClustering
 import networkx as nx
 from community import community_louvain
 from scipy.spatial import distance
+plt.style.use('dark_background')  # 应用黑暗模式
+
 
 
 class SyncMapLouvain:

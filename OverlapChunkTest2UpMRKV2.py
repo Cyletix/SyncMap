@@ -3,50 +3,50 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 
-class OverlapChunkTest1UpMRKV:
-    
+
+class OverlapChunkTest2UpMRKV2:
     def __init__(self, time_delay, m=2):
         self.chunk = 0
-        self.output_size = 8
+        self.output_size = 10
         self.counter = -1
-        self.time_delay = time_delay
-        self.time_counter = time_delay
+        self.tstep = time_delay     # 论文中的 tstep
+        self.time_counter = 0       # 追踪当前时间步
         self.output_class = 0
-        self.previous_output_class = None
-        self.previous_previous_output_class = None
+        self.m = m                  # 马尔可夫链阶数
+        
+        # 存储状态转换历史，每个元素是(state, transition_time)的元组
+        self.state_transitions = []
+        
         self.sequenceA_length = 4
         self.sequenceB_length = 4
-        self.m = m  # 设置马尔可夫链阶数
-        self.state_history = []  # 用于存储过去 m 个状态
-        self.noise_intensity = 0.0  # 原始代码中的噪声强度
-        self.decay_rate = 0.1 # 定义衰减速率 default=0.1
+        self.noise_intensity = 0.0
+        self.decay_rate = 0.1
 
     def getOutputSize(self):
         return self.output_size
     
     def trueLabel(self):
-        truelabel= np.array((0,0,0,1,1,2,2,2))
-        return truelabel
+        return np.array((0,0,0,0,0,1,1,1,1,1))
 
     def updateTimeDelay(self):
         self.time_counter += 1
-        if self.time_counter > self.time_delay:
+        if self.time_counter >= self.tstep:
             self.time_counter = 0
             return True
-        else:
-            return False
+        return False
 
-    # 创建系统的输入模式
     def getInput(self, reset=False):
-        
         if reset:
             self.chunk = 0
             self.counter = -1
-            self.state_history.clear()  # 重置状态历史队列
-
+            self.state_transitions.clear()
+            self.time_counter = 0
+        
+        current_time = len(self.state_transitions) * self.tstep + self.time_counter
         update = self.updateTimeDelay()
-
+        
         if update:
+            # 更新chunk和counter
             if self.chunk == 0:
                 if self.counter > self.sequenceA_length:
                     self.chunk = 1
@@ -59,24 +59,33 @@ class OverlapChunkTest1UpMRKV:
                     self.counter = 0
                 else:
                     self.counter += 1
-
-            # Store the history of the last m states
-            if len(self.state_history) >= self.m:
-                self.state_history.pop(0)  # Remove the oldest state
-            self.state_history.append(self.output_class)  # Add the current state
-
-            # 更新当前状态（取决于当前 chunk 是否为 0）
+            
+            # 根据chunk确定新的输出类别
+            prev_output = self.output_class
             if self.chunk == 0:
                 self.output_class = np.random.randint(5)  # 可能的输出 0~4
             else:
-                self.output_class = 3 + np.random.randint(5)  # 可能的输出 3~7
-
-        # Generate input_value based on the state history
+                self.output_class = np.random.randint(10)  # 可能的输出 0~9
+            
+            # 如果状态发生变化，记录转换
+            if len(self.state_transitions) == 0 or prev_output != self.output_class:
+                self.state_transitions.append((self.output_class, current_time))
+                # 只保留最近m个转换
+                if len(self.state_transitions) > self.m:
+                    self.state_transitions.pop(0)
+        
+        # 计算输入向量
         input_value = np.zeros(self.output_size)
-        for i, state in enumerate(reversed(self.state_history)):
-            decay = np.exp(-self.decay_rate * (self.time_counter + i * self.time_delay)) # 衰减速率 default=0.1
-            input_value += to_categorical(state, self.output_size) * decay
-
+        current_time = len(self.state_transitions) * self.tstep + self.time_counter
+        
+        # 对每个记录的状态转换计算其贡献
+        for state, trans_time in self.state_transitions:
+            time_diff = current_time - trans_time
+            # 只考虑时间差小于m*tstep的状态
+            if time_diff < self.m * self.tstep:
+                decay = np.exp(-self.decay_rate * time_diff)
+                input_value += to_categorical(state, self.output_size) * decay
+        
         # 添加噪声
         input_value += np.random.randn(self.output_size) * self.noise_intensity
         return input_value
@@ -84,23 +93,23 @@ class OverlapChunkTest1UpMRKV:
     def getSequence(self, iterations):
         input_class = np.empty(iterations)
         input_sequence = np.empty((iterations, self.output_size))
-
+        
         for i in range(iterations):
             input_value = self.getInput()
             input_class[i] = self.chunk
             input_sequence[i] = input_value
-
+            
         return input_sequence, input_class
 
-    def plot(self, input_class, input_sequence=None, save=False):
+    def plot(self,input_class,input_sequence=None,save=False):
         a = np.asarray(input_class)
-        t = [i for i, value in enumerate(a)]
+        t = [i for i,value in enumerate(a)]
 
-        plt.plot(t, a)
+        plt.plot(t,a)
         
         if input_sequence is not None:
             sequence = [np.argmax(x) for x in input_sequence]
-            plt.plot(t, sequence)
+            plt.plot(t,sequence)
 
         if save:
             plt.savefig("plot.png")
@@ -108,18 +117,18 @@ class OverlapChunkTest1UpMRKV:
         plt.show()
         plt.close()
     
-    def plotSuperposed(self, input_class, input_sequence=None, save=False):
+    def plotSuperposed(self,input_class,input_sequence=None,save=False):
         input_sequence = np.asarray(input_sequence)
         
-        t = [i for i, value in enumerate(input_sequence)]
+        t = [i for i,value in enumerate(input_sequence)]
         print(input_sequence.shape)
 
         for i in range(input_sequence.shape[1]):
-            a = input_sequence[:, i]
-            plt.plot(t, a)
+            a = input_sequence[:,i]
+            plt.plot(t,a)
         
         a = np.asarray(input_class)
-        plt.plot(t, a)
+        plt.plot(t,a)
 
         if save:
             plt.savefig("plot.png")

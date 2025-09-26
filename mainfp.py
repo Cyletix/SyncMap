@@ -10,8 +10,10 @@ import os
 from ChunkTest import *
 from OverlapChunkTest1 import *
 from OverlapChunkTest1UpMRKV import *
+from OverlapChunkTest1UpMRKV2 import *
 from OverlapChunkTest2 import *
 from OverlapChunkTest2UpMRKV import *
+from OverlapChunkTest2UpMRKV2 import *
 from LongChunkTest import *
 from FixedChunkTest import *
 from GraphWalkTest import *
@@ -61,11 +63,11 @@ def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, eps=3, min_sam
     elif problem_type == 5:
         env = LongChunkTest(time_delay)
     elif problem_type == 6:
-        # env = OverlapChunkTest1(time_delay)
-        env = OverlapChunkTest1UpMRKV(time_delay,m=m)
+        env = OverlapChunkTest1(time_delay)
+        # env = OverlapChunkTest1UpMRKV2(time_delay,m=m)
     elif problem_type == 7:
-        # env = OverlapChunkTest2(time_delay)
-        env = OverlapChunkTest2UpMRKV(time_delay,m=m)
+        env = OverlapChunkTest2(time_delay)
+        # env = OverlapChunkTest2UpMRKV2(time_delay,m=m)
     else:
         print("Invalid problem type. Exiting.")
     output_size = env.getOutputSize()
@@ -182,11 +184,11 @@ def run_main_program(adaptation_rate=0.01, map_dimensions=2, m=2, eps=3, min_sam
 
 
     # 保存图片
-    timestamp = time.strftime("%Y%m%d-%H%M%S") # 获取当前时间戳
-    color=trueLabel
-    save= False 
+    # timestamp = time.strftime("%Y%m%d-%H%M%S") # 获取当前时间戳
+    # color=trueLabel
+    # save= False 
 
-    neuron_group.plot(color, save=save, filename=f"{save_dir}plot_map_{timestamp}.png")
+    # neuron_group.plot(color, save=save, filename=f"{save_dir}plot_map_{timestamp}.png")
     # input_sequence, input_class = env.getSequence(1000)
     # neuron_group.plotSequence(input_sequence[-1000:], input_class[-1000:], save=save, filename=f"{save_dir}plotSequence_{timestamp}.png")
 
@@ -204,18 +206,18 @@ if __name__ == '__main__':
 
     # 定义参数的可能值
     problem_type_values = [6,7]
-    adaptation_rate_values = [0.1,0.01,0.001]# , 0.01, 0.001,0.0001
+    adaptation_rate_values = [0.1]# , 0.01, 0.001,0.0001
     map_dimensions_values = [3]
-    eps_values = [3]
+    eps_values = [3,4,5]
     min_samples_values = [2]
-    m_values = [2,3,5]
-    NMI_new = [True]
+    m_values = [2]
+    NMI_new = [False]
     model_list=["SyncMap","SyncMapLouvain"] # "SyncMap",SyncMapWeightDB, SyncMapLouvain
 
     # 按照论文中的实验方法, 运行10次取平均和方差
     nmi_scores = []
     num_runs = 10  # 论文测试条件: 10
-    print("|model|overlap|Average NMI Score|Standard Deviation|adaptation_rate|map_dimensions|markov length|eps|min_samples||condition|")
+    print("|model|overlap|Average NMI Score|Standard Deviation|adaptation_rate|map_dimensions|markov length|eps|min_samples|NMI new|condition|")
     print("|-|-|-|-|-|-|-|-|-|-|")
     for (problem_type, adaptation_rate, map_dimensions, eps, min_samples, m,NMI_new,model) in itertools.product(
     problem_type_values, adaptation_rate_values, map_dimensions_values, eps_values, min_samples_values, m_values,NMI_new,model_list
@@ -236,6 +238,5 @@ if __name__ == '__main__':
 
         mean_nmi = np.mean(nmi_scores)
         std_nmi = np.std(nmi_scores)
-        # print("|overlap|Average NMI Score|Standard Deviation|adaptation_rate|map_dimensions|markov length|eps|min_samples|")
-        # print("|-|-|-|-|-|-|-|-|")
+
         print(f"|{model}|{problem_type-5}|{mean_nmi}|{std_nmi}|{adaptation_rate}|{map_dimensions}|{m}|{eps}|{min_samples}|{NMI_new}|")
